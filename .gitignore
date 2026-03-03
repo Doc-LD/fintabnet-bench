@@ -1,0 +1,10 @@
+node_modules/
+dist/
+.env
+benchmark/data/
+benchmark/predictions/
+benchmark/results/
+benchmark/charts/
+.venv/
+__pycache__/
+*.pyc

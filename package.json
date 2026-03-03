@@ -1,0 +1,22 @@
+{
+  "name": "@docld/fintabnet-bench",
+  "version": "1.0.0",
+  "description": "FinTabNet benchmark for DocLD table extraction — Needleman-Wunsch scoring on financial tables from SEC filings.",
+  "license": "MIT",
+  "type": "module",
+  "scripts": {
+    "download": "python3 scripts/download_dataset.py",
+    "extract": "npx tsx src/run-extraction.ts",
+    "score": "npx tsx src/run-benchmark.ts",
+    "benchmark": "npm run extract && npm run score",
+    "generate-charts": "python3 scripts/generate_charts.py",
+    "test": "npx tsx src/test-scorer.ts"
+  },
+  "dependencies": {
+    "dotenv": "^16.4.5"
+  },
+  "devDependencies": {
+    "tsx": "^4.0.0",
+    "typescript": "^5.0.0"
+  }
+}
