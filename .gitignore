@@ -3,6 +3,8 @@ dist/
 .env
 benchmark/data/
 benchmark/predictions/
+benchmark/predictions-v1/
+benchmark/predictions-v2/
 benchmark/results/
 benchmark/charts/
 .venv/

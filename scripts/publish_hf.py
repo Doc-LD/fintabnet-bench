@@ -88,7 +88,7 @@ Benchmark results for [DocLD](https://docld.com) table extraction on the
 ## Methodology
 
 - **Dataset**: [FinTabNet_OTSL](https://huggingface.co/datasets/docling-project/FinTabNet_OTSL) — {results['totalSamples']} samples from the test split
-- **Extraction**: DocLD agentic table extraction (VLM-based, gpt-5-mini)
+- **Extraction**: DocLD vision-based table extraction
 - **Scoring**: Needleman-Wunsch hierarchical alignment (same as [RD-TableBench](https://github.com/reductoai/rd-tablebench))
 - **Output**: HTML tables with rowspan/colspan for merged cells
 
@@ -114,53 +114,58 @@ Benchmark results for [DocLD](https://docld.com) table extraction on the
 - [RD-TableBench Results](https://docld.com/blog/docld-tablebench)
 """
 
-    readme_path = Path("/tmp/hf_readme.md")
-    readme_path.write_text(readme)
+    # Stage everything in a temp folder, then upload in a single commit
+    import shutil
+    import tempfile
 
-    # Upload files
-    print("Uploading README...")
-    api.upload_file(
-        path_or_fileobj=str(readme_path),
-        path_in_repo="README.md",
-        repo_id=REPO_ID,
-        repo_type="dataset",
-        token=HF_TOKEN,
-    )
+    staging = Path(tempfile.mkdtemp(prefix="hf_fintabnet_"))
+    try:
+        (staging / "README.md").write_text(readme)
+        shutil.copy2(RESULTS_PATH, staging / "results.json")
 
-    print("Uploading results.json...")
-    api.upload_file(
-        path_or_fileobj=str(RESULTS_PATH),
-        path_in_repo="results.json",
-        repo_id=REPO_ID,
-        repo_type="dataset",
-        token=HF_TOKEN,
-    )
+        if PREDICTIONS_DIR.exists():
+            pred_out = staging / "predictions"
+            pred_out.mkdir()
+            pred_files = list(PREDICTIONS_DIR.glob("*.html"))
+            valid = [f for f in pred_files if not f.read_text().startswith("<!-- e")]
+            print(f"Staging {len(valid)} predictions...")
+            for f in valid:
+                shutil.copy2(f, pred_out / f.name)
 
-    # Upload predictions
-    if PREDICTIONS_DIR.exists():
-        pred_files = list(PREDICTIONS_DIR.glob("*.html"))
-        valid = [f for f in pred_files if not f.read_text().startswith("<!-- e")]
-        print(f"Uploading {len(valid)} predictions...")
-        for f in valid:
-            api.upload_file(
-                path_or_fileobj=str(f),
-                path_in_repo=f"predictions/{f.name}",
-                repo_id=REPO_ID,
-                repo_type="dataset",
-                token=HF_TOKEN,
-            )
+        if CHARTS_DIR.exists():
+            chart_out = staging / "charts"
+            chart_out.mkdir()
+            for f in CHARTS_DIR.glob("*.png"):
+                shutil.copy2(f, chart_out / f.name)
 
-    # Upload charts
-    if CHARTS_DIR.exists():
-        for f in CHARTS_DIR.glob("*.png"):
-            print(f"Uploading chart: {f.name}")
-            api.upload_file(
-                path_or_fileobj=str(f),
-                path_in_repo=f"charts/{f.name}",
-                repo_id=REPO_ID,
-                repo_type="dataset",
-                token=HF_TOKEN,
-            )
+        import time
+        import re
+
+        print("Uploading all files in a single commit...")
+        max_retries = 5
+        for attempt in range(1, max_retries + 1):
+            try:
+                api.upload_folder(
+                    folder_path=str(staging),
+                    repo_id=REPO_ID,
+                    repo_type="dataset",
+                    token=HF_TOKEN,
+                    commit_message="Update benchmark results (82.2% on 451 samples)",
+                )
+                break
+            except Exception as e:
+                err_msg = str(e)
+                if "429" in err_msg and attempt < max_retries:
+                    wait = 120
+                    match = re.search(r"Retry after (\d+) seconds", err_msg)
+                    if match:
+                        wait = int(match.group(1)) + 10
+                    print(f"Rate limited (attempt {attempt}/{max_retries}). Waiting {wait}s...")
+                    time.sleep(wait)
+                else:
+                    raise
+    finally:
+        shutil.rmtree(staging, ignore_errors=True)
 
     print(f"\nDone! Dataset: https://huggingface.co/datasets/{REPO_ID}")
 

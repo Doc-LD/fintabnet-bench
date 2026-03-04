@@ -71,7 +71,19 @@ function needlemanWunschColumns(
 }
 
 export function normalizeCell(cell: string): string {
-  return cell.replace(/\n/g, ' ').replace(/-/g, '').replace(/\s+/g, '');
+  let s = cell.normalize('NFC');
+  s = s.replace(/\n/g, ' ');
+  // Parenthesized negatives: (42.3) → 42.3 (common financial notation)
+  s = s.replace(/\((\d[\d,.]*)\)/g, '$1');
+  // Strip currency symbols and percent signs
+  s = s.replace(/[$€£¥%]/g, '');
+  // Remove commas between digits (thousands separators: 1,234 → 1234)
+  s = s.replace(/(\d),(\d)/g, '$1$2');
+  // Remove all hyphens (consistent with RD-TableBench grading.py)
+  s = s.replace(/-/g, '');
+  // Collapse all whitespace
+  s = s.replace(/\s+/g, '');
+  return s.toLowerCase();
 }
 
 export function tableScore(
